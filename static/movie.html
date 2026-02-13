@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Dettaglio Film</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #f8fafc;
+            color: #1e293b;
+            font-family: sans-serif;
+        }
+
+        .hero-top {
+            background-color: #032541;
+            color: white;
+            padding: 60px 0;
+        }
+
+        .img-box {
+            background-color: #0d253f;
+            aspect-ratio: 2/3;
+            overflow: hidden;
+            position: relative;
+            width: 300px;
+        }
+
+        img {
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        img.loaded {
+            opacity: 1;
+        }
+    </style>
+</head>
+
+<body>
+    <header class="bg-[#032541] p-4 border-b border-white/5 text-white">
+        <div class="max-w-7xl mx-auto flex justify-between items-center font-bold">
+            <h1 class="text-[#01b4e4] font-black text-2xl uppercase cursor-pointer" onclick="location.href='/'">MovieDB
+            </h1>
+            <a href="/" class="uppercase tracking-widest text-sm hover:text-[#01b4e4]">← Torna alla Home</a>
+        </div>
+    </header>
+    <main>
+        <section class="hero-top">
+            <div id="hero" class="max-w-7xl mx-auto px-6 grid md:grid-cols-[300px_1fr] gap-12">
+            </div>
+        </section>
+        <section class="max-w-7xl mx-auto p-10">
+            <h3
+                class="text-2xl font-bold mb-8 border-l-4 border-[#01b4e4] pl-4 uppercase tracking-widest text-gray-800">
+                Cast principale</h3>
+            <div id="cast" class="grid grid-cols-2 md:grid-cols-6 gap-6">
+            </div>
+        </section>
+    </main>
+    <script>
+        const PL = "https://placehold.jp/24/032541/01b4e4/300x450.png?text=Immagine%20ND";
+        const id = new URLSearchParams(window.location.search).get('id');
+
+        if (!id) window.location.href = '/';
+
+        fetch(`/api/movies/${id}`).then(r => r.json()).then(m => {
+            // Logica per i registi: crea un link per ogni regista trovato
+            const linkRegisti = m.registi.map(reg =>
+                `<a href="/director.html?id=${reg.id}" class="text-[#01b4e4] hover:underline cursor-pointer">${reg.nome}</a>`
+            ).join(', ');
+
+            document.getElementById('hero').innerHTML = `
+                <div class="img-box rounded-lg shadow-2xl">
+                    <img src="${m.locandina}" onload="this.classList.add('loaded')" onerror="this.onerror=null;this.src='${PL}';this.classList.add('loaded');" class="w-full h-full object-cover">
+                </div>
+                <div>
+                    <h1 class="text-5xl font-extrabold mb-4">${m.titolo} <span class="font-normal opacity-60">(${m.anno_uscita})</span></h1>
+                    <div class="bg-slate-900 border-2 border-[#1ed5a9] w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg mb-8">${m.percentuale_gradimento}%</div>
+                    
+                    <p class="text-gray-400 uppercase text-xs font-bold tracking-tighter mb-2">Regia</p>
+                    <p class="text-xl mb-8 font-normal">${linkRegisti}</p>
+                    
+                    <p class="text-gray-400 uppercase text-xs font-bold tracking-tighter mb-2">Sinossi</p>
+                    <p class="text-xl leading-relaxed font-normal text-slate-200">${m.sinossi}</p>
+                </div>`;
+        });
+
+        fetch(`/api/movies/${id}/actors`).then(r => r.json()).then(list => {
+            const c = document.getElementById('cast');
+            list.forEach(a => {
+                const d = document.createElement('div');
+                d.className = 'bg-white rounded-lg shadow-lg overflow-hidden cursor-pointer hover:scale-105 transition duration-300';
+                d.onclick = () => window.location.href = `/actor.html?id=${a.id}`;
+                d.innerHTML = `
+                    <div class="bg-[#0d253f] aspect-[2/3] overflow-hidden">
+                        <img src="${a.locandina}" onload="this.classList.add('loaded')" onerror="this.onerror=null;this.src='${PL}';this.classList.add('loaded');" class="w-full h-full object-cover">
+                    </div>
+                    <div class="p-3">
+                        <p class="font-bold text-gray-900 leading-tight">${a.nome}</p>
+                        <p class="text-gray-500 text-xs font-normal truncate">${a.ruolo}</p>
+                    </div>`;
+                c.appendChild(d);
+            });
+        });
+    </script>
+</body>
+
+</html>
