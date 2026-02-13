@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+    <meta charset="UTF-8">
+    <title>MovieDB - Home</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #0d253f;
+            color: white;
+            font-family: sans-serif;
+        }
+
+        .movie-card {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .img-box {
+            background-color: #032541;
+            aspect-ratio: 2/3;
+            overflow: hidden;
+            position: relative;
+        }
+
+        img {
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        img.loaded {
+            opacity: 1;
+        }
+    </style>
+</head>
+
+<body>
+    <header class="bg-[#032541] p-4 border-b border-white/5">
+        <h1 class="max-w-7xl mx-auto text-[#01b4e4] font-black text-2xl uppercase">MovieDB</h1>
+    </header>
+    <main>
+        <section class="bg-[#032541] px-10 py-20 text-white">
+            <div class="max-w-7xl mx-auto">
+                <h2 class="text-6xl font-extrabold mb-4">Benvenuto.</h2>
+                <p class="text-2xl font-bold opacity-80 mb-10">Esplora milioni di film e persone. Cerca ora.</p>
+                <div class="flex bg-white rounded-full overflow-hidden max-w-4xl shadow-2xl">
+                    <input id="in" type="text" placeholder="Cerca un film..."
+                        class="flex-1 px-8 py-4 text-gray-800 outline-none text-lg font-normal">
+                    <button id="btn"
+                        class="bg-gradient-to-r from-[#1ed5a9] to-[#01b4e4] px-10 py-4 font-bold text-white uppercase tracking-wider">Cerca</button>
+                </div>
+            </div>
+        </section>
+        <section class="max-w-7xl mx-auto p-10">
+            <h3 id="st" class="text-2xl font-bold mb-8 border-l-4 border-[#01b4e4] pl-4 uppercase tracking-widest">
+                Tendenze</h3>
+            <div id="grid" class="grid grid-cols-2 md:grid-cols-5 gap-8"></div>
+            <div id="error" class="hidden py-20 text-center text-3xl font-bold text-gray-500 font-normal">Nessun film
+                trovato per questa ricerca.</div>
+        </section>
+    </main>
+    <script>
+        const PL = "https://placehold.jp/24/032541/01b4e4/300x450.png?text=Immagine%20ND";
+        const draw = (list) => {
+            const g = document.getElementById('grid'); const e = document.getElementById('error'); g.innerHTML = '';
+            if (list.length === 0) { g.classList.add('hidden'); e.classList.remove('hidden'); return; }
+            g.classList.remove('hidden'); e.classList.add('hidden');
+            list.forEach(m => {
+                const d = document.createElement('div'); d.className = 'movie-card cursor-pointer hover:scale-105 transition duration-300';
+                d.onclick = () => window.location.href = `/movie.html?id=${m.id}`;
+                d.innerHTML = `
+                    <div class="img-box">
+                        <img src="${m.locandina}" onload="this.classList.add('loaded')" onerror="this.onerror=null;this.src='${PL}';this.classList.add('loaded');" class="w-full h-full object-cover">
+                    </div>
+                    <div class="p-4 text-gray-900"><p class="font-bold truncate">${m.titolo}</p><p class="text-gray-500 text-sm font-normal">${m.anno_uscita}</p></div>`;
+                g.appendChild(d);
+            });
+        };
+        document.getElementById('btn').onclick = async () => {
+            const q = document.getElementById('in').value; if (!q) return;
+            const r = await fetch(`/api/movies/title=${encodeURIComponent(q)}`);
+            draw(await r.json()); document.getElementById('st').textContent = "Risultati Ricerca";
+        };
+        fetch('/api/movies/trending').then(r => r.json()).then(draw);
+    </script>
+</body>
+
+</html>
