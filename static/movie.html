@@ -64,6 +64,7 @@
 
         if (!id) window.location.href = '/';
 
+        // Caricamento dettagli film e regia
         fetch(`/api/movies/${id}`).then(r => r.json()).then(m => {
             // Logica per i registi: crea un link per ogni regista trovato
             const linkRegisti = m.registi.map(reg =>
@@ -86,8 +87,21 @@
                 </div>`;
         });
 
+        // Caricamento cast principale
         fetch(`/api/movies/${id}/actors`).then(r => r.json()).then(list => {
             const c = document.getElementById('cast');
+
+            // Controllo se la lista degli attori è vuota
+            if (!list || list.length === 0) {
+                c.innerHTML = `
+                    <div class="col-span-full py-10">
+                        <p class="text-xl font-bold text-gray-400 uppercase tracking-widest">
+                            Nessun attore trovato nel cast.
+                        </p>
+                    </div>`;
+                return;
+            }
+
             list.forEach(a => {
                 const d = document.createElement('div');
                 d.className = 'bg-white rounded-lg shadow-lg overflow-hidden cursor-pointer hover:scale-105 transition duration-300';
