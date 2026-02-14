@@ -36,20 +36,25 @@
         <div class="max-w-7xl mx-auto flex justify-between items-center">
             <h1 class="text-[#01b4e4] font-black text-2xl uppercase cursor-pointer" onclick="location.href='/'">MovieDB
             </h1>
-            <a href="/" class="uppercase tracking-widest text-sm hover:text-[#01b4e4]">← Home</a>
+            <a href="/" class="uppercase tracking-widest text-sm hover:text-[#01b4e4]">← Torna alla Home</a>
         </div>
     </header>
     <main class="max-w-7xl mx-auto p-10">
         <div id="hero" class="grid md:grid-cols-[300px_1fr] gap-12 mb-20"></div>
+
         <h3 class="text-2xl font-bold mb-8 border-l-4 border-[#01b4e4] pl-4 uppercase tracking-widest text-gray-800">
             Film diretti</h3>
-        <div id="grid" class="grid grid-cols-2 md:grid-cols-5 gap-8"></div>
+        <div id="grid" class="grid grid-cols-2 md:grid-cols-5 gap-8">
+        </div>
     </main>
+
     <script>
         const PL = "https://placehold.jp/24/032541/01b4e4/300x450.png?text=Immagine%20ND";
         const id = new URLSearchParams(window.location.search).get('id');
 
-        // Carica i dati anagrafici (usiamo lo stesso endpoint degli attori, sono sempre 'persone')
+        if (!id) window.location.href = '/';
+
+        // 1. Caricamento Dati Anagrafici (usiamo l'endpoint generico delle persone)
         fetch(`/api/actors/${id}`).then(r => r.json()).then(a => {
             document.getElementById('hero').innerHTML = `
                 <div class="img-box rounded-lg shadow-xl">
@@ -58,25 +63,48 @@
                 <div>
                     <h1 class="text-5xl font-extrabold mb-8 text-[#032541]">${a.nome} <span class="text-lg font-normal text-gray-400 block mt-2">Regista</span></h1>
                     <div class="grid grid-cols-2 gap-10 mb-10 text-gray-600">
-                        <div><p class="text-xs font-bold uppercase text-gray-400 mb-1 tracking-widest">Nascita</p><p class="text-xl font-normal">${a.data_nascita}</p></div>
-                        <div><p class="text-xs font-bold uppercase text-gray-400 mb-1 tracking-widest">Luogo</p><p class="text-xl font-normal">${a.luogo_nascita}</p></div>
+                        <div>
+                            <p class="text-xs font-bold uppercase text-gray-400 mb-1 tracking-widest">Nascita</p>
+                            <p class="text-xl font-normal">${a.data_nascita}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs font-bold uppercase text-gray-400 mb-1 tracking-widest">Luogo</p>
+                            <p class="text-xl font-normal">${a.luogo_nascita}</p>
+                        </div>
                     </div>
                     <p class="text-xs font-bold uppercase text-gray-400 mb-2 tracking-widest">Biografia</p>
                     <p class="text-xl leading-relaxed font-normal text-gray-700">${a.biografia}</p>
                 </div>`;
         });
 
-        // Carica i film DIRETTI (usiamo la nuova rotta specifica)
+        // 2. Caricamento Filmografia (Film diretti)
         fetch(`/api/directors/${id}/movies`).then(r => r.json()).then(list => {
             const g = document.getElementById('grid');
+
+            // Gestione del caso "Nessun film trovato"
+            if (!list || list.length === 0) {
+                g.innerHTML = `
+                    <div class="col-span-full py-20 text-center">
+                        <p class="text-xl font-bold text-gray-400 uppercase tracking-widest">
+                            Nessun film diretto trovato in archivio.
+                        </p>
+                    </div>`;
+                return;
+            }
+
+            g.innerHTML = '';
             list.forEach(m => {
-                const d = document.createElement('div'); d.className = 'bg-white rounded-lg shadow-lg overflow-hidden cursor-pointer hover:scale-105 transition duration-300';
+                const d = document.createElement('div');
+                d.className = 'bg-white rounded-lg shadow-lg overflow-hidden cursor-pointer hover:scale-105 transition duration-300';
                 d.onclick = () => window.location.href = `/movie.html?id=${m.id}`;
                 d.innerHTML = `
                     <div class="img-box w-full">
                         <img src="${m.locandina}" onload="this.classList.add('loaded')" onerror="this.onerror=null;this.src='${PL}';this.classList.add('loaded');" class="w-full h-full object-cover">
                     </div>
-                    <div class="p-4 text-gray-900"><p class="font-bold truncate">${m.titolo}</p><p class="text-gray-500 text-sm font-normal">${m.anno_uscita}</p></div>`;
+                    <div class="p-4 text-gray-900">
+                        <p class="font-bold truncate">${m.titolo}</p>
+                        <p class="text-gray-500 text-sm font-normal">${m.anno_uscita}</p>
+                    </div>`;
                 g.appendChild(d);
             });
         });
