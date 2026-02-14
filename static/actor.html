@@ -3,12 +3,11 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Dettaglio Attore</title>
+    <title>MovieDB - Attore</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
             background-color: #f8fafc;
-            color: #1e293b;
             font-family: sans-serif;
         }
 
@@ -16,8 +15,6 @@
             background-color: #032541;
             aspect-ratio: 2/3;
             overflow: hidden;
-            position: relative;
-            width: 300px;
         }
 
         img {
@@ -32,47 +29,53 @@
 </head>
 
 <body>
-    <header class="bg-[#032541] p-4 text-white border-b border-white/5 font-bold">
+    <header class="bg-[#032541] p-4 text-white font-bold">
         <div class="max-w-7xl mx-auto flex justify-between items-center">
             <h1 class="text-[#01b4e4] font-black text-2xl uppercase cursor-pointer" onclick="location.href='/'">MovieDB
             </h1>
             <a href="/" class="uppercase tracking-widest text-sm hover:text-[#01b4e4]">← Home</a>
         </div>
     </header>
+
     <main class="max-w-7xl mx-auto p-10">
-        <div id="hero" class="grid md:grid-cols-[300px_1fr] gap-12 mb-20"></div>
-        <h3 class="text-2xl font-bold mb-8 border-l-4 border-[#1ed5a9] pl-4 uppercase tracking-widest text-gray-800">
-            Conosciuto per</h3>
-        <div id="grid" class="grid grid-cols-2 md:grid-cols-5 gap-8"></div>
+        <div id="bio-section" class="grid md:grid-cols-[300px_1fr] gap-12 mb-16">
+        </div>
+
+        <h3 class="text-2xl font-bold mb-8 border-l-4 border-[#1ed5a9] pl-4 uppercase tracking-widest">Filmografia
+            (Cast)</h3>
+        <div id="movie-grid" class="grid grid-cols-2 md:grid-cols-5 gap-8">
+        </div>
     </main>
+
     <script>
-        const PL = "https://placehold.jp/24/032541/01b4e4/300x450.png?text=Immagine%20ND";
-        const id = new URLSearchParams(window.location.search).get('id');
-        fetch(`/api/actors/${id}`).then(r => r.json()).then(a => {
-            document.getElementById('hero').innerHTML = `
-                <div class="img-box rounded-lg shadow-xl">
-                    <img src="${a.locandina}" onload="this.classList.add('loaded')" onerror="this.onerror=null;this.src='${PL}';this.classList.add('loaded');" class="w-full h-full object-cover">
-                </div>
+        const aid = new URLSearchParams(window.location.search).get('id');
+        if (!aid) window.location.href = '/';
+
+        // 1. Dati Attore (Usiamo l'endpoint generico che restituisce Person)
+        fetch(`/api/directors/${aid}`).then(r => r.json()).then(a => {
+            document.getElementById('bio-section').innerHTML = `
+                <div class="img-box rounded-lg shadow-xl"><img src="${a.profile_path}" onload="this.classList.add('loaded')" class="w-full h-full object-cover"></div>
                 <div>
-                    <h1 class="text-5xl font-extrabold mb-8 text-[#032541]">${a.nome}</h1>
-                    <div class="grid grid-cols-2 gap-10 mb-10 text-gray-600">
-                        <div><p class="text-xs font-bold uppercase text-gray-400 mb-1 tracking-widest">Nascita</p><p class="text-xl font-normal">${a.data_nascita}</p></div>
-                        <div><p class="text-xs font-bold uppercase text-gray-400 mb-1 tracking-widest">Luogo</p><p class="text-xl font-normal">${a.luogo_nascita}</p></div>
+                    <h1 class="text-5xl font-extrabold mb-6 text-[#032541]">${a.name}</h1>
+                    <div class="flex gap-8 mb-6 text-gray-500 text-sm font-bold uppercase tracking-widest">
+                        <div><p class="text-gray-400">Nascita</p><p class="text-gray-800">${a.birthday}</p></div>
+                        <div><p class="text-gray-400">Luogo</p><p class="text-gray-800">${a.place_of_birth}</p></div>
                     </div>
-                    <p class="text-xs font-bold uppercase text-gray-400 mb-2 tracking-widest">Biografia</p>
-                    <p class="text-xl leading-relaxed font-normal text-gray-700">${a.biografia}</p>
+                    <p class="text-gray-400 uppercase text-xs font-bold tracking-widest mb-2">Biografia</p>
+                    <p class="text-lg leading-relaxed text-gray-700">${a.biography}</p>
                 </div>`;
         });
-        fetch(`/api/actors/${id}/movies`).then(r => r.json()).then(list => {
-            const g = document.getElementById('grid');
+
+        // 2. Filmografia come attore
+        fetch(`/api/actors/${aid}/films`).then(r => r.json()).then(list => {
+            const g = document.getElementById('movie-grid');
             list.forEach(m => {
-                const d = document.createElement('div'); d.className = 'bg-white rounded-lg shadow-lg overflow-hidden cursor-pointer hover:scale-105 transition duration-300';
+                const d = document.createElement('div');
+                d.className = 'bg-white rounded-lg shadow-md overflow-hidden cursor-pointer hover:scale-105 transition';
                 d.onclick = () => window.location.href = `/movie.html?id=${m.id}`;
                 d.innerHTML = `
-                    <div class="img-box w-full">
-                        <img src="${m.locandina}" onload="this.classList.add('loaded')" onerror="this.onerror=null;this.src='${PL}';this.classList.add('loaded');" class="w-full h-full object-cover">
-                    </div>
-                    <div class="p-4 text-gray-900"><p class="font-bold truncate">${m.titolo}</p><p class="text-gray-500 text-sm font-normal">${m.anno_uscita}</p></div>`;
+                    <div class="img-box"><img src="${m.poster_path}" onload="this.classList.add('loaded')" class="w-full h-full object-cover"></div>
+                    <div class="p-4"><p class="font-bold text-gray-900 truncate">${m.title}</p><p class="text-gray-400 text-sm">${m.release_date}</p></div>`;
                 g.appendChild(d);
             });
         });
