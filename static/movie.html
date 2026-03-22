@@ -6,15 +6,28 @@
     <title>Dettaglio Film</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background-color: #f8fafc; color: #1e293b; font-family: sans-serif; }
-        .hero-top { background-color: #032541; color: white; padding: 60px 0; }
-        
+        body {
+            background-color: #f8fafc;
+            color: #1e293b;
+            font-family: sans-serif;
+        }
+
+        .hero-top {
+            background-color: #032541;
+            color: white;
+            padding: 60px 0;
+        }
+
         .img-box {
             background-color: #0d253f;
             aspect-ratio: 2/3;
             overflow: hidden;
             position: relative;
             width: 300px;
+        }
+
+        .img-box.img-box-full {
+            width: 100%;
         }
 
         /* Spinner Animato */
@@ -33,18 +46,32 @@
             animation: spin 1s linear infinite;
         }
 
-        .img-box.loaded::before { display: none; }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        .img-box.loaded::before {
+            display: none;
+        }
 
-        img { opacity: 0; transition: opacity 0.3s; }
-        img.loaded { opacity: 1; }
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        img {
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        img.loaded {
+            opacity: 1;
+        }
     </style>
 </head>
 
 <body>
     <header class="bg-[#032541] p-4 border-b border-white/5 text-white">
         <div class="max-w-7xl mx-auto flex justify-between items-center font-bold">
-            <h1 class="text-[#01b4e4] font-black text-2xl uppercase cursor-pointer" onclick="location.href='/'">MovieDB</h1>
+            <h1 class="text-[#01b4e4] font-black text-2xl uppercase cursor-pointer" onclick="location.href='/'">MovieDB
+            </h1>
             <a href="/" class="uppercase tracking-widest text-sm hover:text-[#01b4e4]">← Torna alla Home</a>
         </div>
     </header>
@@ -53,36 +80,38 @@
             <div id="hero" class="max-w-7xl mx-auto px-6 grid md:grid-cols-[300px_1fr] gap-12"></div>
         </section>
         <section class="max-w-7xl mx-auto p-10">
-            <h3 class="text-2xl font-bold mb-8 border-l-4 border-[#01b4e4] pl-4 uppercase tracking-widest text-gray-800">Cast principale</h3>
+            <h3
+                class="text-2xl font-bold mb-8 border-l-4 border-[#01b4e4] pl-4 uppercase tracking-widest text-gray-800">
+                Cast principale</h3>
             <div id="cast" class="grid grid-cols-2 md:grid-cols-6 gap-6"></div>
         </section>
     </main>
     <script>
-    const id = new URLSearchParams(window.location.search).get('id');
-    if (!id) window.location.href = '/';
+        const id = new URLSearchParams(window.location.search).get('id');
+        if (!id) window.location.href = '/';
 
-    // Funzione di utilità per rimuovere lo spinner
-    const removeSpinner = (img) => {
-        img.classList.add('loaded');
-        if (img.parentElement) {
-            img.parentElement.classList.add('loaded');
-        }
-    };
+        // Funzione di utilità per rimuovere lo spinner
+        const removeSpinner = (img) => {
+            img.classList.add('loaded');
+            if (img.parentElement) {
+                img.parentElement.classList.add('loaded');
+            }
+        };
 
-    fetch(`/api/movies/${id}`).then(r => {
-        if (!r.ok) { window.location.href = '/'; return; }
-        return r.json();
-    }).then(m => {
-        if (!m) return;
+        fetch(`/api/movies/${id}`).then(r => {
+            if (!r.ok) { window.location.href = '/'; return; }
+            return r.json();
+        }).then(m => {
+            if (!m) return;
 
-        // Gestione sicura dei registi (evita l'undefined dello screenshot)
-        const listaRegisti = m.registi || [];
-        const linkRegisti = listaRegisti.length > 0 
-            ? listaRegisti.map(reg => `<a href="/director.html?id=${reg.id}" class="text-[#01b4e4] hover:underline cursor-pointer">${reg.name}</a>`).join(', ')
-            : "N.D.";
+            // Gestione sicura dei registi (evita l'undefined dello screenshot)
+            const listaRegisti = m.registi || [];
+            const linkRegisti = listaRegisti.length > 0
+                ? listaRegisti.map(reg => `<a href="/director.html?id=${reg.id}" class="text-[#01b4e4] hover:underline cursor-pointer">${reg.name}</a>`).join(', ')
+                : "N.D.";
 
-        const hero = document.getElementById('hero');
-        hero.innerHTML = `
+            const hero = document.getElementById('hero');
+            hero.innerHTML = `
             <div class="img-box rounded-lg shadow-2xl">
                 <img src="${m.poster_path}" 
                      class="w-full h-full object-cover"
@@ -97,24 +126,24 @@
                 <p class="text-gray-400 uppercase text-xs font-bold tracking-tighter mb-2">Sinossi</p>
                 <p class="text-xl leading-relaxed font-normal text-slate-200">${m.overview}</p>
             </div>`;
-            
-        // Controllo extra: se l'immagine è già caricata (cache), forziamo la rimozione dello spinner
-        const img = hero.querySelector('img');
-        if (img.complete) removeSpinner(img);
-    });
 
-    fetch(`/api/movies/${id}/actors`).then(r => r.json()).then(list => {
-        const c = document.getElementById('cast');
-        if (!list || list.length === 0) {
-            c.innerHTML = `<div class="col-span-full py-20 text-center"><p class="text-xl font-bold text-gray-400 uppercase tracking-widest">Nessun attore trovato.</p></div>`;
-            return;
-        }
-        list.forEach(a => {
-            const d = document.createElement('div');
-            d.className = 'bg-white rounded-lg shadow-lg overflow-hidden cursor-pointer hover:scale-105 transition duration-300';
-            d.onclick = () => window.location.href = `/actor.html?id=${a.id}`;
-            d.innerHTML = `
-                <div class="img-box w-full" style="width: 100%;">
+            // Controllo extra: se l'immagine è già caricata (cache), forziamo la rimozione dello spinner
+            const img = hero.querySelector('img');
+            if (img.complete) removeSpinner(img);
+        });
+
+        fetch(`/api/movies/${id}/actors`).then(r => r.json()).then(list => {
+            const c = document.getElementById('cast');
+            if (!list || list.length === 0) {
+                c.innerHTML = `<div class="col-span-full py-20 text-center"><p class="text-xl font-bold text-gray-400 uppercase tracking-widest">Nessun attore trovato.</p></div>`;
+                return;
+            }
+            list.forEach(a => {
+                const d = document.createElement('div');
+                d.className = 'bg-white rounded-lg shadow-lg overflow-hidden cursor-pointer hover:scale-105 transition duration-300';
+                d.onclick = () => window.location.href = `/actor.html?id=${a.id}`;
+                d.innerHTML = `
+                <div class="img-box img-box-full">
                     <img src="${a.profile_path}" 
                          class="w-full h-full object-cover"
                          onload="removeSpinner(this)" 
@@ -124,12 +153,15 @@
                     <p class="font-bold text-gray-900 leading-tight">${a.name}</p>
                     <p class="text-gray-500 text-xs font-normal truncate">${a.character}</p>
                 </div>`;
-            c.appendChild(d);
-            
-            const img = d.querySelector('img');
-            if (img.complete) removeSpinner(img);
+                c.appendChild(d);
+
+                const img = d.querySelector('img');
+                if (img.complete) removeSpinner(img);
+            });
+        }).catch(() => {
+            document.getElementById('cast').innerHTML = `<div class="col-span-full py-20 text-center"><p class="text-xl font-bold text-gray-400 uppercase tracking-widest">Errore nel caricamento del cast.</p></div>`;
         });
-    });
-</script>
+    </script>
 </body>
+
 </html>
