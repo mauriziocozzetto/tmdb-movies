@@ -105,10 +105,17 @@
         };
         document.getElementById('btn').onclick = async () => {
             const q = document.getElementById('in').value; if (!q) return;
-            const r = await fetch(`/api/movies/title=${encodeURIComponent(q)}`);
-            draw(await r.json()); document.getElementById('st').textContent = "Risultati Ricerca";
+            try {
+                const r = await fetch(`/api/movies/title=${encodeURIComponent(q)}`);
+                draw(await r.json()); document.getElementById('st').textContent = "Risultati Ricerca";
+            } catch {
+                draw([]);
+            }
         };
-        fetch('/api/movies/trending').then(r => r.json()).then(draw);
+        document.getElementById('in').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') document.getElementById('btn').click();
+        });
+        fetch('/api/movies/trending').then(r => r.json()).then(draw).catch(() => draw([]));
     </script>
 </body>
 
