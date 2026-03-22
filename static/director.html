@@ -1,33 +1,76 @@
 <!DOCTYPE html>
 <html lang="it">
+
 <head>
     <meta charset="UTF-8">
     <title>Dettaglio Regista</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background-color: #f8fafc; color: #1e293b; font-family: sans-serif; }
-        .img-box { background-color: #032541; aspect-ratio: 2/3; overflow: hidden; position: relative; width: 300px; }
-        .img-box::before {
-            content: ""; position: absolute; top: 50%; left: 50%; width: 30px; height: 30px;
-            margin: -15px 0 0 -15px; border: 3px solid rgba(1, 180, 228, 0.2);
-            border-top-color: #01b4e4; border-radius: 50%; animation: spin 1s linear infinite;
+        body {
+            background-color: #f8fafc;
+            color: #1e293b;
+            font-family: sans-serif;
         }
-        .img-box.loaded::before { display: none; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        img { opacity: 0; transition: opacity 0.3s; }
-        img.loaded { opacity: 1; }
+
+        .img-box {
+            background-color: #032541;
+            aspect-ratio: 2/3;
+            overflow: hidden;
+            position: relative;
+            width: 300px;
+        }
+
+        .img-box.img-box-full {
+            width: 100%;
+        }
+
+        .img-box::before {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 30px;
+            height: 30px;
+            margin: -15px 0 0 -15px;
+            border: 3px solid rgba(1, 180, 228, 0.2);
+            border-top-color: #01b4e4;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .img-box.loaded::before {
+            display: none;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        img {
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        img.loaded {
+            opacity: 1;
+        }
     </style>
 </head>
+
 <body>
     <header class="bg-[#032541] p-4 text-white border-b border-white/5 font-bold">
         <div class="max-w-7xl mx-auto flex justify-between items-center">
-            <h1 class="text-[#01b4e4] font-black text-2xl uppercase cursor-pointer" onclick="location.href='/'">MovieDB</h1>
+            <h1 class="text-[#01b4e4] font-black text-2xl uppercase cursor-pointer" onclick="location.href='/'">MovieDB
+            </h1>
             <a href="/" class="uppercase tracking-widest text-sm hover:text-[#01b4e4]">← Torna alla Home</a>
         </div>
     </header>
     <main class="max-w-7xl mx-auto p-10">
         <div id="hero" class="grid md:grid-cols-[300px_1fr] gap-12 mb-16"></div>
-        <h3 class="text-2xl font-bold mb-8 border-l-4 border-[#01b4e4] pl-4 uppercase tracking-widest text-gray-800">Filmografia</h3>
+        <h3 class="text-2xl font-bold mb-8 border-l-4 border-[#01b4e4] pl-4 uppercase tracking-widest text-gray-800">
+            Filmografia</h3>
         <div id="grid" class="grid grid-cols-2 md:grid-cols-5 gap-8"></div>
     </main>
     <script>
@@ -46,6 +89,8 @@
                     </div>
                     <p class="text-xs font-bold uppercase text-gray-400 mb-2 tracking-widest">Biografia</p><p class="text-xl leading-relaxed font-normal text-gray-700">${a.biography}</p>
                 </div>`;
+        }).catch(() => {
+            document.getElementById('hero').innerHTML = `<p class="text-xl text-gray-400 uppercase font-bold">Errore nel caricamento dei dati.</p>`;
         });
 
         fetch(`/api/directors/${id}/movies`).then(r => r.json()).then(list => {
@@ -59,11 +104,14 @@
                 const d = document.createElement('div');
                 d.className = 'bg-white rounded-lg shadow-lg overflow-hidden cursor-pointer hover:scale-105 transition duration-300';
                 d.onclick = () => window.location.href = `/movie.html?id=${m.id}`;
-                d.innerHTML = `<div class="img-box w-full" style="width:100%"><img src="${m.poster_path}" onload="this.classList.add('loaded'); this.parentElement.classList.add('loaded')" onerror="this.classList.add('loaded'); this.parentElement.classList.add('loaded')" class="w-full h-full object-cover"></div>
+                d.innerHTML = `<div class="img-box img-box-full"><img src="${m.poster_path}" onload="this.classList.add('loaded'); this.parentElement.classList.add('loaded')" onerror="this.classList.add('loaded'); this.parentElement.classList.add('loaded')" class="w-full h-full object-cover"></div>
                     <div class="p-4 text-gray-900"><p class="font-bold truncate">${m.title}</p><p class="text-gray-500 text-sm font-normal">${m.release_date}</p></div>`;
                 g.appendChild(d);
             });
+        }).catch(() => {
+            document.getElementById('grid').innerHTML = `<div class="col-span-full py-10 text-gray-400 uppercase font-bold">Errore nel caricamento dei film.</div>`;
         });
     </script>
 </body>
+
 </html>
