@@ -1,80 +1,41 @@
 <!DOCTYPE html>
 <html lang="it">
-
 <head>
     <meta charset="UTF-8">
     <title>Dettaglio Attore</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body {
-            background-color: #f8fafc;
-            color: #1e293b;
-            font-family: sans-serif;
-        }
-
-        /* Spinner Logic */
-        .img-box {
-            background-color: #032541;
-            aspect-ratio: 2/3;
-            overflow: hidden;
-            position: relative;
-            width: 300px;
-        }
-
+        body { background-color: #f8fafc; color: #1e293b; font-family: sans-serif; }
+        .img-box { background-color: #032541; aspect-ratio: 2/3; overflow: hidden; position: relative; width: 300px; }
         .img-box::before {
-            content: "";
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 30px;
-            height: 30px;
-            margin: -15px 0 0 -15px;
-            border: 3px solid rgba(1, 180, 228, 0.2);
-            border-top-color: #01b4e4;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
+            content: ""; position: absolute; top: 50%; left: 50%; width: 30px; height: 30px;
+            margin: -15px 0 0 -15px; border: 3px solid rgba(1, 180, 228, 0.2);
+            border-top-color: #01b4e4; border-radius: 50%; animation: spin 1s linear infinite;
         }
-
-        .img-box.loaded::before {
-            display: none;
-        }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        img {
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-
-        img.loaded {
-            opacity: 1;
-        }
+        .img-box.loaded::before { display: none; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        img { opacity: 0; transition: opacity 0.3s; }
+        img.loaded { opacity: 1; }
     </style>
 </head>
-
 <body>
     <header class="bg-[#032541] p-4 text-white border-b border-white/5 font-bold">
         <div class="max-w-7xl mx-auto flex justify-between items-center">
-            <h1 class="text-[#01b4e4] font-black text-2xl uppercase cursor-pointer" onclick="location.href='/'">MovieDB
-            </h1>
+            <h1 class="text-[#01b4e4] font-black text-2xl uppercase cursor-pointer" onclick="location.href='/'">MovieDB</h1>
             <a href="/" class="uppercase tracking-widest text-sm hover:text-[#01b4e4]">← Torna alla Home</a>
         </div>
     </header>
     <main class="max-w-7xl mx-auto p-10">
         <div id="hero" class="grid md:grid-cols-[300px_1fr] gap-12 mb-16"></div>
-        <h3 class="text-2xl font-bold mb-8 border-l-4 border-[#01b4e4] pl-4 uppercase tracking-widest text-gray-800">
-            Conosciuto per</h3>
+        <h3 class="text-2xl font-bold mb-8 border-l-4 border-[#01b4e4] pl-4 uppercase tracking-widest text-gray-800">Conosciuto per</h3>
         <div id="grid" class="grid grid-cols-2 md:grid-cols-5 gap-8"></div>
     </main>
     <script>
         const id = new URLSearchParams(window.location.search).get('id');
         if (!id) window.location.href = '/';
 
-        fetch(`/api/actors/${id}`).then(r => r.json()).then(a => {
+        fetch(`/api/actors/${id}`).then(r => r.ok ? r.json() : null).then(a => {
+            if (!a) { document.getElementById('hero').innerHTML = "Dati non trovati."; return; }
             document.getElementById('hero').innerHTML = `
                 <div class="img-box rounded-lg shadow-xl"><img src="${a.profile_path}" onload="this.classList.add('loaded'); this.parentElement.classList.add('loaded')" onerror="this.classList.add('loaded'); this.parentElement.classList.add('loaded')" class="w-full h-full object-cover"></div>
                 <div>
@@ -89,7 +50,12 @@
 
         fetch(`/api/actors/${id}/movies`).then(r => r.json()).then(list => {
             const g = document.getElementById('grid');
-            list.forEach(m => {
+            const film = list || [];
+            if (film.length === 0) {
+                g.innerHTML = `<div class="col-span-full py-10 text-gray-400 uppercase font-bold">Nessun film trovato.</div>`;
+                return;
+            }
+            film.forEach(m => {
                 const d = document.createElement('div');
                 d.className = 'bg-white rounded-lg shadow-lg overflow-hidden cursor-pointer hover:scale-105 transition duration-300';
                 d.onclick = () => window.location.href = `/movie.html?id=${m.id}`;
@@ -97,8 +63,9 @@
                     <div class="p-4 text-gray-900"><p class="font-bold truncate">${m.title}</p><p class="text-gray-500 text-sm font-normal">${m.release_date}</p></div>`;
                 g.appendChild(d);
             });
+        }).catch(() => {
+            document.getElementById('grid').innerHTML = "Errore nel caricamento dei film.";
         });
     </script>
 </body>
-
 </html>
