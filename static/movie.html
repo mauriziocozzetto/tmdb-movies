@@ -58,63 +58,78 @@
         </section>
     </main>
     <script>
-        const id = new URLSearchParams(window.location.search).get('id');
-        if (!id) window.location.href = '/';
+    const id = new URLSearchParams(window.location.search).get('id');
+    if (!id) window.location.href = '/';
 
-        fetch(`/api/movies/${id}`).then(r => {
-            if (!r.ok) { window.location.href = '/'; return; }
-            return r.json();
-        }).then(m => {
-            if (!m) return;
+    // Funzione di utilità per rimuovere lo spinner
+    const removeSpinner = (img) => {
+        img.classList.add('loaded');
+        if (img.parentElement) {
+            img.parentElement.classList.add('loaded');
+        }
+    };
+
+    fetch(`/api/movies/${id}`).then(r => {
+        if (!r.ok) { window.location.href = '/'; return; }
+        return r.json();
+    }).then(m => {
+        if (!m) return;
+
+        // Gestione sicura dei registi (evita l'undefined dello screenshot)
+        const listaRegisti = m.registi || [];
+        const linkRegisti = listaRegisti.length > 0 
+            ? listaRegisti.map(reg => `<a href="/director.html?id=${reg.id}" class="text-[#01b4e4] hover:underline cursor-pointer">${reg.name}</a>`).join(', ')
+            : "N.D.";
+
+        const hero = document.getElementById('hero');
+        hero.innerHTML = `
+            <div class="img-box rounded-lg shadow-2xl">
+                <img src="${m.poster_path}" 
+                     class="w-full h-full object-cover"
+                     onload="removeSpinner(this)" 
+                     onerror="removeSpinner(this)">
+            </div>
+            <div>
+                <h1 class="text-5xl font-extrabold mb-4">${m.title} <span class="font-normal opacity-60">(${m.release_date})</span></h1>
+                <div class="bg-slate-900 border-2 border-[#1ed5a9] w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg mb-8">${Math.round(m.vote_average * 10)}%</div>
+                <p class="text-gray-400 uppercase text-xs font-bold tracking-tighter mb-2">Regia</p>
+                <p class="text-xl mb-8 font-normal" id="registi-container">${linkRegisti}</p>
+                <p class="text-gray-400 uppercase text-xs font-bold tracking-tighter mb-2">Sinossi</p>
+                <p class="text-xl leading-relaxed font-normal text-slate-200">${m.overview}</p>
+            </div>`;
             
-            // PROTEZIONE: Gestione sicura della lista registi
-            const listaRegisti = m.registi || [];
-            const linkRegisti = listaRegisti.length > 0 
-                ? listaRegisti.map(reg => `<a href="/director.html?id=${reg.id}" class="text-[#01b4e4] hover:underline cursor-pointer">${reg.name}</a>`).join(', ')
-                : "Informazione non disponibile";
+        // Controllo extra: se l'immagine è già caricata (cache), forziamo la rimozione dello spinner
+        const img = hero.querySelector('img');
+        if (img.complete) removeSpinner(img);
+    });
 
-            document.getElementById('hero').innerHTML = `
-                <div class="img-box rounded-lg shadow-2xl">
-                    <img src="${m.poster_path}" 
-                         onload="this.classList.add('loaded'); this.parentElement.classList.add('loaded')" 
-                         onerror="this.classList.add('loaded'); this.parentElement.classList.add('loaded')" 
-                         class="w-full h-full object-cover">
+    fetch(`/api/movies/${id}/actors`).then(r => r.json()).then(list => {
+        const c = document.getElementById('cast');
+        if (!list || list.length === 0) {
+            c.innerHTML = `<div class="col-span-full py-20 text-center"><p class="text-xl font-bold text-gray-400 uppercase tracking-widest">Nessun attore trovato.</p></div>`;
+            return;
+        }
+        list.forEach(a => {
+            const d = document.createElement('div');
+            d.className = 'bg-white rounded-lg shadow-lg overflow-hidden cursor-pointer hover:scale-105 transition duration-300';
+            d.onclick = () => window.location.href = `/actor.html?id=${a.id}`;
+            d.innerHTML = `
+                <div class="img-box w-full" style="width: 100%;">
+                    <img src="${a.profile_path}" 
+                         class="w-full h-full object-cover"
+                         onload="removeSpinner(this)" 
+                         onerror="removeSpinner(this)">
                 </div>
-                <div>
-                    <h1 class="text-5xl font-extrabold mb-4">${m.title} <span class="font-normal opacity-60">(${m.release_date})</span></h1>
-                    <div class="bg-slate-900 border-2 border-[#1ed5a9] w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg mb-8">${Math.round(m.vote_average * 10)}%</div>
-                    <p class="text-gray-400 uppercase text-xs font-bold tracking-tighter mb-2">Regia</p><p class="text-xl mb-8 font-normal">${linkRegisti}</p>
-                    <p class="text-gray-400 uppercase text-xs font-bold tracking-tighter mb-2">Sinossi</p><p class="text-xl leading-relaxed font-normal text-slate-200">${m.overview}</p>
+                <div class="p-3">
+                    <p class="font-bold text-gray-900 leading-tight">${a.name}</p>
+                    <p class="text-gray-500 text-xs font-normal truncate">${a.character}</p>
                 </div>`;
-        });
-
-        fetch(`/api/movies/${id}/actors`).then(r => r.json()).then(list => {
-            const c = document.getElementById('cast');
-            const attori = list || [];
+            c.appendChild(d);
             
-            if (attori.length === 0) {
-                c.innerHTML = `<div class="col-span-full py-20 text-center"><p class="text-xl font-bold text-gray-400 uppercase tracking-widest">Nessun attore trovato nel cast.</p></div>`;
-                return;
-            }
-
-            attori.forEach(a => {
-                const d = document.createElement('div');
-                d.className = 'bg-white rounded-lg shadow-lg overflow-hidden cursor-pointer hover:scale-105 transition duration-300';
-                d.onclick = () => window.location.href = `/actor.html?id=${a.id}`;
-                d.innerHTML = `
-                    <div class="img-box w-full" style="width: 100%;">
-                        <img src="${a.profile_path}" 
-                             onload="this.classList.add('loaded'); this.parentElement.classList.add('loaded')" 
-                             onerror="this.classList.add('loaded'); this.parentElement.classList.add('loaded')" 
-                             class="w-full h-full object-cover">
-                    </div>
-                    <div class="p-3">
-                        <p class="font-bold text-gray-900 leading-tight">${a.name}</p>
-                        <p class="text-gray-500 text-xs font-normal truncate">${a.character}</p>
-                    </div>`;
-                c.appendChild(d);
-            });
+            const img = d.querySelector('img');
+            if (img.complete) removeSpinner(img);
         });
-    </script>
+    });
+</script>
 </body>
 </html>
