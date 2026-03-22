@@ -1,194 +1,175 @@
-# Aggiungi RedirectResponse
-from fastapi.responses import FileResponse, RedirectResponse
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, field_validator
-from typing import List, Optional
+from pydantic import BaseModel, Field, field_validator
+from typing import List
 import requests
+import os
 
 app = FastAPI()
-app.add_middleware(CORSMiddleware,
-                   allow_origins=["*"],
-                   allow_methods=["*"],
-                   allow_headers=["*"])
+
+# --- CONFIGURAZIONE PERCORSI ---
+# Otteniamo il percorso assoluto della cartella dove si trova main.py
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# Definiamo il percorso della cartella static
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+
+# --- MIDDLEWARE ---
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 TMDB_API_KEY = "2fa8ef75c70a212d9fd3cd51b785939f"
 TMDB_BASE_URL = "https://api.themoviedb.org/3"
-IMG_ND = "https://placehold.jp/24/032541/01b4e4/300x450.png?text=Immagine%20ND"
-INFO_ND = "Informazione non disponibile"
+IMG_PLACEHOLDER = "https://placehold.jp/24/032541/01b4e4/300x450.png?text=Immagine%20ND"
 
-# --- MODELLI ROBUSTI ---
+# --- MODELLI ---
 
-
-class Film(BaseModel):
+class Movie(BaseModel):
     id: int
-    title: str = INFO_ND
-    release_date: str = INFO_ND
-    poster_path: str = IMG_ND
+    title: str = "N.D."
+    release_date: str = "N.D."
     vote_average: float = 0.0
-    overview: str = INFO_ND
-
-    @field_validator("title", "overview", mode="before")
-    @classmethod
-    def validate_text(cls, v):
-        return v if v and str(v).strip() not in ["", "None", "null"] else INFO_ND
+    poster_path: str = ""
 
     @field_validator("release_date", mode="before")
     @classmethod
     def extract_year(cls, v):
-        # Se la data esiste ed è lunga almeno 4 caratteri, prendi solo l'anno
-        if v and len(str(v)) >= 4:
-            return str(v)[:4]
-        return INFO_ND
+        return v[:4] if v and len(str(v)) >= 4 else "N.D."
 
     @field_validator("poster_path", mode="before")
     @classmethod
-    def validate_img(cls, v):
-        if not v or str(v) in ["None", "", "null"]:
-            return IMG_ND
+    def format_img(cls, v):
+        if not v or str(v) in ["None", "", "null", None]:
+            return IMG_PLACEHOLDER
         return f"https://image.tmdb.org/t/p/w342{v}"
 
-
-class Person(BaseModel):
+class DirectorInfo(BaseModel):
     id: int
-    name: str = INFO_ND
-    character: Optional[str] = INFO_ND
-    profile_path: str = IMG_ND
-    biography: str = INFO_ND
-    birthday: str = INFO_ND
-    place_of_birth: str = INFO_ND
+    name: str
 
-    @field_validator("name", "character", "biography", "birthday", "place_of_birth", mode="before")
-    @classmethod
-    def validate_text(cls, v):
-        return v if v and str(v).strip() not in ["", "None", "null"] else INFO_ND
+class ActorInMovie(BaseModel):
+    id: int
+    name: str
+    character: str = "N.D."
+    profile_path: str = ""
 
     @field_validator("profile_path", mode="before")
     @classmethod
-    def validate_img(cls, v):
-        if not v or str(v) in ["None", "", "null"]:
-            return IMG_ND
+    def format_img(cls, v):
+        if not v or str(v) in ["None", "", "null", None]:
+            return IMG_PLACEHOLDER
         return f"https://image.tmdb.org/t/p/w185{v}"
 
-# --- HELPER ---
+class MovieDetail(Movie):
+    overview: str = "Nessuna sinossi disponibile."
+    registi: List[DirectorInfo] = []
 
+    @field_validator("overview", mode="before")
+    @classmethod
+    def validate_overview(cls, v):
+        if not v or str(v).strip() in ["", "None", "null", None]:
+            return "Nessuna sinossi disponibile per questo film in italiano."
+        return v
 
-def tmdb_get(path: str, params: dict = {}):
-    params.update({"api_key": TMDB_API_KEY, "language": "it-IT"})
-    r = requests.get(f"{TMDB_BASE_URL}/{path}", params=params)
-    if r.status_code != 200:
-        raise HTTPException(status_code=404)
-    return r.json()
+class ActorDetail(BaseModel):
+    id: int
+    name: str = "N.D."
+    birthday: str = "N.D."
+    place_of_birth: str = "N.D."
+    biography: str = "Nessuna biografia disponibile."
+    profile_path: str = ""
 
-# --- ROTTE ---
+    @field_validator("birthday", "place_of_birth", "biography", mode="before")
+    @classmethod
+    def validate_nulls(cls, v):
+        if v is None or str(v).strip() in ["", "None", "null", None]:
+            return "Informazione non disponibile"
+        return v
 
+    @field_validator("profile_path", mode="before")
+    @classmethod
+    def format_img(cls, v):
+        if not v or str(v) in ["None", "", "null", None]:
+            return IMG_PLACEHOLDER
+        return f"https://image.tmdb.org/t/p/w500{v}"
 
-@app.get("/api/films/trendings")
-async def trend():
-    data = tmdb_get("trending/movie/week")
-    return [Film(**m) for m in data.get("results", [])[:10]]
+# --- API ---
 
+@app.get("/api/movies/trending")
+async def get_trending():
+    r = requests.get(f"{TMDB_BASE_URL}/trending/movie/week",
+                     params={"api_key": TMDB_API_KEY, "language": "it-IT"}).json()
+    return [Movie(**m) for m in r.get("results", [])[:10]]
 
-@app.get("/api/films/search")
+@app.get("/api/movies/title={title}")
 async def search(title: str):
-    data = tmdb_get("search/movie", {"query": title})
-    return [Film(**m) for m in data.get("results", [])]
+    r = requests.get(f"{TMDB_BASE_URL}/search/movie",
+                     params={"api_key": TMDB_API_KEY, "language": "it-IT", "query": title}).json()
+    return [Movie(**m) for m in r.get("results", [])]
 
+@app.get("/api/movies/{id}")
+async def movie_details(id: int):
+    resp = requests.get(f"{TMDB_BASE_URL}/movie/{id}",
+                        params={"api_key": TMDB_API_KEY, "language": "it-IT"})
+    if resp.status_code != 200:
+        raise HTTPException(status_code=404)
+    m_data = resp.json()
+    c_data = requests.get(f"{TMDB_BASE_URL}/movie/{id}/credits",
+                          params={"api_key": TMDB_API_KEY}).json()
+    regs = [DirectorInfo(**p) for p in c_data.get("crew", [])
+            if p.get("job") == "Director"]
+    # Assicuriamoci che registi sia sempre una lista, anche vuota
+    return MovieDetail(**m_data, registi=regs if regs else [])
 
-@app.get("/api/films/{fid}")
-async def film_info(fid: int):
-    data = tmdb_get(f"movie/{fid}")
-    return Film(**data)
+@app.get("/api/movies/{id}/actors")
+async def movie_cast(id: int):
+    r = requests.get(f"{TMDB_BASE_URL}/movie/{id}/credits",
+                     params={"api_key": TMDB_API_KEY, "language": "it-IT"}).json()
+    return [ActorInMovie(**p) for p in r.get("cast", [])[:12]]
 
+@app.get("/api/actors/{id}")
+async def person_details(id: int):
+    resp = requests.get(f"{TMDB_BASE_URL}/person/{id}",
+                        params={"api_key": TMDB_API_KEY, "language": "it-IT"})
+    if resp.status_code != 200:
+        raise HTTPException(status_code=404)
+    return ActorDetail(**resp.json())
 
-@app.get("/api/films/{fid}/actors")
-async def film_actors(fid: int):
-    data = tmdb_get(f"movie/{fid}/credits")
-    return [Person(**p) for p in data.get("cast", [])[:12]]
+@app.get("/api/actors/{id}/movies")
+@app.get("/api/directors/{id}/movies")
+async def person_movies(id: int):
+    r = requests.get(f"{TMDB_BASE_URL}/person/{id}/movie_credits",
+                     params={"api_key": TMDB_API_KEY, "language": "it-IT"}).json()
+    data = r.get("cast", []) + [m for m in r.get("crew", [])
+                                if m.get("job") == "Director"]
+    return [Movie(**m) for m in data]
 
+# --- SERVIZIO FILE STATICI ---
+# Montiamo la cartella static per file CSS/JS/Img se presenti
+app.mount("/static_files", StaticFiles(directory=STATIC_DIR), name="static_files")
 
-@app.get("/api/films/{fid}/directors")
-async def film_directors(fid: int):
-    data = tmdb_get(f"movie/{fid}/credits")
-    # Filtriamo chi ha il ruolo di Director nella crew
-    return [Person(**p) for p in data.get("crew", []) if p.get("job") == "Director"]
-
-
-@app.get("/api/actors/{aid}/films")
-async def actor_films(aid: int):
-    data = tmdb_get(f"person/{aid}/movie_credits")
-    return [Film(**m) for m in data.get("cast", [])]
-
-# ROTTA SIMMETRICA: Film diretti dal regista
-
-
-@app.get("/api/directors/{did}/films")
-async def director_films(did: int):
-    data = tmdb_get(f"person/{did}/movie_credits")
-    # Prendiamo solo i film in cui la persona compare come Director
-    films = [m for m in data.get("crew", []) if m.get("job") == "Director"]
-    return [Film(**m) for m in films]
-
-
-@app.get("/api/directors/{did}")
-async def director_info(did: int):
-    data = tmdb_get(f"person/{did}")
-    return Person(**data)
-
-
-@app.get("/api/actors/{aid}")
-async def actor_info(aid: int):
-    return Person(**tmdb_get(f"person/{aid}"))
-
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
-
-# --- ROTTE PER SERVIRE LE PAGINE HTML ---
-
-
+# Rotte esplicite per le pagine HTML usando percorsi assoluti
 @app.get("/")
-async def home():
-    return FileResponse("static/index.html")
+async def serve_home(): 
+    return FileResponse(os.path.join(STATIC_DIR, "index.html"))
 
+@app.get("/index.html")
+async def serve_index(): 
+    return FileResponse(os.path.join(STATIC_DIR, "index.html"))
 
 @app.get("/movie.html")
-async def movie_page(id: Optional[str] = None):
-    # 1. Se l'id manca o è una stringa vuota
-    if not id:
-        return RedirectResponse(url="/")
-
-    # 2. Verifica se l'ID è un numero e se esiste su TMDB
-    try:
-        fid = int(id)
-        # Se il film non esiste, solleva HTTPException 404
-        tmdb_get(f"movie/{fid}")
-        return FileResponse("static/movie.html")
-    except (ValueError, HTTPException):
-        # In caso di ID non numerico o film inesistente, torna alla Home
-        return RedirectResponse(url="/")
-
+async def serve_movie_page(): 
+    return FileResponse(os.path.join(STATIC_DIR, "movie.html"))
 
 @app.get("/actor.html")
-async def actor_page(id: Optional[str] = None):
-    if not id:
-        return RedirectResponse(url="/")
-    try:
-        aid = int(id)
-        tmdb_get(f"person/{aid}")
-        return FileResponse("static/actor.html")
-    except (ValueError, HTTPException):
-        return RedirectResponse(url="/")
-
+async def serve_actor_page(): 
+    return FileResponse(os.path.join(STATIC_DIR, "actor.html"))
 
 @app.get("/director.html")
-async def director_page(id: Optional[str] = None):
-    if not id:
-        return RedirectResponse(url="/")
-    try:
-        did = int(id)
-        tmdb_get(f"person/{did}")
-        return FileResponse("static/director.html")
-    except (ValueError, HTTPException):
-        return RedirectResponse(url="/")
+async def serve_director_page(): 
+    return FileResponse(os.path.join(STATIC_DIR, "director.html"))
