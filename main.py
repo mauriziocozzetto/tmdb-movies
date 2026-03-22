@@ -14,6 +14,8 @@ app = FastAPI()
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # Definiamo il percorso della cartella static
 STATIC_DIR = os.path.join(BASE_DIR, "static")
+# Creiamo la cartella static se non esiste, per evitare crash all'avvio
+os.makedirs(STATIC_DIR, exist_ok=True)
 
 # --- MIDDLEWARE ---
 app.add_middleware(
@@ -28,6 +30,7 @@ TMDB_BASE_URL = "https://api.themoviedb.org/3"
 IMG_PLACEHOLDER = "https://placehold.jp/24/032541/01b4e4/300x450.png?text=Immagine%20ND"
 
 # --- MODELLI ---
+
 
 class Movie(BaseModel):
     id: int
@@ -48,9 +51,11 @@ class Movie(BaseModel):
             return IMG_PLACEHOLDER
         return f"https://image.tmdb.org/t/p/w342{v}"
 
+
 class DirectorInfo(BaseModel):
     id: int
     name: str
+
 
 class ActorInMovie(BaseModel):
     id: int
@@ -65,6 +70,7 @@ class ActorInMovie(BaseModel):
             return IMG_PLACEHOLDER
         return f"https://image.tmdb.org/t/p/w185{v}"
 
+
 class MovieDetail(Movie):
     overview: str = "Nessuna sinossi disponibile."
     registi: List[DirectorInfo] = []
@@ -76,6 +82,7 @@ class MovieDetail(Movie):
             return "Nessuna sinossi disponibile per questo film in italiano."
         return v
 
+
 class ActorDetail(BaseModel):
     id: int
     name: str = "N.D."
@@ -84,11 +91,18 @@ class ActorDetail(BaseModel):
     biography: str = "Nessuna biografia disponibile."
     profile_path: str = ""
 
-    @field_validator("birthday", "place_of_birth", "biography", mode="before")
+    @field_validator("birthday", "place_of_birth", mode="before")
     @classmethod
     def validate_nulls(cls, v):
         if v is None or str(v).strip() in ["", "None", "null", None]:
             return "Informazione non disponibile"
+        return v
+
+    @field_validator("biography", mode="before")
+    @classmethod
+    def validate_biography(cls, v):
+        if v is None or str(v).strip() in ["", "None", "null", None]:
+            return "Nessuna biografia disponibile."
         return v
 
     @field_validator("profile_path", mode="before")
@@ -100,76 +114,116 @@ class ActorDetail(BaseModel):
 
 # --- API ---
 
+
 @app.get("/api/movies/trending")
 async def get_trending():
-    r = requests.get(f"{TMDB_BASE_URL}/trending/movie/week",
-                     params={"api_key": TMDB_API_KEY, "language": "it-IT"}).json()
-    return [Movie(**m) for m in r.get("results", [])[:10]]
+    try:
+        r = requests.get(f"{TMDB_BASE_URL}/trending/movie/week",
+                         params={"api_key": TMDB_API_KEY, "language": "it-IT"}, timeout=10).json()
+        return [Movie(**m) for m in r.get("results", [])[:10]]
+    except Exception:
+        raise HTTPException(status_code=503, detail="Servizio TMDB non raggiungibile")
+
 
 @app.get("/api/movies/title={title}")
 async def search(title: str):
-    r = requests.get(f"{TMDB_BASE_URL}/search/movie",
-                     params={"api_key": TMDB_API_KEY, "language": "it-IT", "query": title}).json()
-    return [Movie(**m) for m in r.get("results", [])]
+    try:
+        r = requests.get(f"{TMDB_BASE_URL}/search/movie",
+                         params={"api_key": TMDB_API_KEY, "language": "it-IT", "query": title}, timeout=10).json()
+        return [Movie(**m) for m in r.get("results", [])]
+    except Exception:
+        raise HTTPException(status_code=503, detail="Servizio TMDB non raggiungibile")
+
 
 @app.get("/api/movies/{id}")
 async def movie_details(id: int):
-    resp = requests.get(f"{TMDB_BASE_URL}/movie/{id}",
-                        params={"api_key": TMDB_API_KEY, "language": "it-IT"})
-    if resp.status_code != 200:
-        raise HTTPException(status_code=404)
-    m_data = resp.json()
-    c_data = requests.get(f"{TMDB_BASE_URL}/movie/{id}/credits",
-                          params={"api_key": TMDB_API_KEY}).json()
-    regs = [DirectorInfo(**p) for p in c_data.get("crew", [])
-            if p.get("job") == "Director"]
-    # Assicuriamoci che registi sia sempre una lista, anche vuota
-    return MovieDetail(**m_data, registi=regs if regs else [])
+    try:
+        resp = requests.get(f"{TMDB_BASE_URL}/movie/{id}",
+                            params={"api_key": TMDB_API_KEY, "language": "it-IT"}, timeout=10)
+        if resp.status_code != 200:
+            raise HTTPException(status_code=404)
+        m_data = resp.json()
+        c_data = requests.get(f"{TMDB_BASE_URL}/movie/{id}/credits",
+                              params={"api_key": TMDB_API_KEY}, timeout=10).json()
+        regs = [DirectorInfo(**p) for p in c_data.get("crew", [])
+                if p.get("job") == "Director"]
+        # Assicuriamoci che registi sia sempre una lista, anche vuota
+        return MovieDetail(**m_data, registi=regs if regs else [])
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=503, detail="Servizio TMDB non raggiungibile")
+
 
 @app.get("/api/movies/{id}/actors")
 async def movie_cast(id: int):
-    r = requests.get(f"{TMDB_BASE_URL}/movie/{id}/credits",
-                     params={"api_key": TMDB_API_KEY, "language": "it-IT"}).json()
-    return [ActorInMovie(**p) for p in r.get("cast", [])[:12]]
+    try:
+        r = requests.get(f"{TMDB_BASE_URL}/movie/{id}/credits",
+                         params={"api_key": TMDB_API_KEY, "language": "it-IT"}, timeout=10).json()
+        return [ActorInMovie(**p) for p in r.get("cast", [])[:12]]
+    except Exception:
+        raise HTTPException(status_code=503, detail="Servizio TMDB non raggiungibile")
+
 
 @app.get("/api/actors/{id}")
 async def person_details(id: int):
-    resp = requests.get(f"{TMDB_BASE_URL}/person/{id}",
-                        params={"api_key": TMDB_API_KEY, "language": "it-IT"})
-    if resp.status_code != 200:
-        raise HTTPException(status_code=404)
-    return ActorDetail(**resp.json())
+    try:
+        resp = requests.get(f"{TMDB_BASE_URL}/person/{id}",
+                            params={"api_key": TMDB_API_KEY, "language": "it-IT"}, timeout=10)
+        if resp.status_code != 200:
+            raise HTTPException(status_code=404)
+        return ActorDetail(**resp.json())
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=503, detail="Servizio TMDB non raggiungibile")
+
 
 @app.get("/api/actors/{id}/movies")
 @app.get("/api/directors/{id}/movies")
 async def person_movies(id: int):
-    r = requests.get(f"{TMDB_BASE_URL}/person/{id}/movie_credits",
-                     params={"api_key": TMDB_API_KEY, "language": "it-IT"}).json()
-    data = r.get("cast", []) + [m for m in r.get("crew", [])
-                                if m.get("job") == "Director"]
-    return [Movie(**m) for m in data]
+    try:
+        r = requests.get(f"{TMDB_BASE_URL}/person/{id}/movie_credits",
+                         params={"api_key": TMDB_API_KEY, "language": "it-IT"}, timeout=10).json()
+        # Deduplicazione: un film può comparire sia nel cast che nella regia (es. attori-registi)
+        seen_ids = set()
+        data = []
+        for m in r.get("cast", []) + [m for m in r.get("crew", []) if m.get("job") == "Director"]:
+            if m.get("id") not in seen_ids:
+                seen_ids.add(m["id"])
+                data.append(m)
+        return [Movie(**m) for m in data]
+    except Exception:
+        raise HTTPException(status_code=503, detail="Servizio TMDB non raggiungibile")
 
 # --- SERVIZIO FILE STATICI ---
 # Montiamo la cartella static per file CSS/JS/Img se presenti
-app.mount("/static_files", StaticFiles(directory=STATIC_DIR), name="static_files")
+app.mount("/static_files", StaticFiles(directory=STATIC_DIR),
+          name="static_files")
 
 # Rotte esplicite per le pagine HTML usando percorsi assoluti
+
+
 @app.get("/")
-async def serve_home(): 
+async def serve_home():
     return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+
 
 @app.get("/index.html")
-async def serve_index(): 
+async def serve_index():
     return FileResponse(os.path.join(STATIC_DIR, "index.html"))
 
+
 @app.get("/movie.html")
-async def serve_movie_page(): 
+async def serve_movie_page():
     return FileResponse(os.path.join(STATIC_DIR, "movie.html"))
 
+
 @app.get("/actor.html")
-async def serve_actor_page(): 
+async def serve_actor_page():
     return FileResponse(os.path.join(STATIC_DIR, "actor.html"))
 
+
 @app.get("/director.html")
-async def serve_director_page(): 
+async def serve_director_page():
     return FileResponse(os.path.join(STATIC_DIR, "director.html"))
